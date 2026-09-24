@@ -3,13 +3,21 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: School Learning Platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Current user profile and onboarding
+  - name: curriculum
+    description: School-specific curriculum browsing
+  - name: dashboards
+    description: Role-specific dashboard data
+  - name: admin
+    description: Protected curriculum administration
 paths:
   /healthz:
     get:
@@ -24,7 +32,296 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get the signed-in user's profile
+      responses:
+        "200":
+          description: Current profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    patch:
+      operationId: updateMe
+      tags: [auth]
+      summary: Update the signed-in user's onboarding profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /onboarding/options:
+    get:
+      operationId: getOnboardingOptions
+      tags: [auth]
+      summary: Get selectable onboarding options
+      parameters:
+        - $ref: "#/components/parameters/CityId"
+        - $ref: "#/components/parameters/BoardId"
+        - $ref: "#/components/parameters/SchoolId"
+      responses:
+        "200":
+          description: Context-aware options
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnboardingOptions"
+  /curriculum:
+    get:
+      operationId: getCurriculum
+      tags: [curriculum]
+      summary: Browse a school's curriculum hierarchy
+      parameters:
+        - $ref: "#/components/parameters/SchoolIdRequired"
+        - $ref: "#/components/parameters/ClassId"
+        - $ref: "#/components/parameters/SubjectId"
+        - $ref: "#/components/parameters/BookId"
+        - $ref: "#/components/parameters/ChapterId"
+      responses:
+        "200":
+          description: Curriculum tree
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurriculumTree"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /dashboard/student:
+    get:
+      operationId: getStudentDashboard
+      tags: [dashboards]
+      summary: Get the signed-in student's dashboard
+      responses:
+        "200":
+          description: Student dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentDashboard"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /dashboard/teacher:
+    get:
+      operationId: getTeacherDashboard
+      tags: [dashboards]
+      summary: Get the signed-in teacher's dashboard
+      responses:
+        "200":
+          description: Teacher dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherDashboard"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /admin/users:
+    get:
+      operationId: listUsers
+      tags: [admin]
+      summary: List platform users
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserProfile"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /admin:
+    get:
+      operationId: listAdminEntities
+      tags: [admin]
+      summary: List curriculum entities
+      parameters:
+        - $ref: "#/components/parameters/EntityQuery"
+        - name: parentId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Entity records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminEntity"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createAdminEntity
+      tags: [admin]
+      summary: Create a curriculum entity
+      parameters:
+        - $ref: "#/components/parameters/EntityQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminEntityInput"
+      responses:
+        "201":
+          description: Created entity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminEntity"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    patch:
+      operationId: updateAdminEntity
+      tags: [admin]
+      summary: Update a curriculum entity
+      parameters:
+        - $ref: "#/components/parameters/EntityQueryRequired"
+        - $ref: "#/components/parameters/IdQueryRequired"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminEntityInput"
+      responses:
+        "200":
+          description: Updated entity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminEntity"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAdminEntity
+      tags: [admin]
+      summary: Delete a curriculum entity
+      parameters:
+        - $ref: "#/components/parameters/EntityQueryRequired"
+        - $ref: "#/components/parameters/IdQueryRequired"
+      responses:
+        "204":
+          description: Deleted
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
+  parameters:
+    EntityQuery:
+      name: entity
+      in: query
+      required: true
+      schema:
+        type: string
+        enum: [cities, boards, schools, classes, subjects, books, chapters, topics]
+    EntityQueryRequired:
+      name: entity
+      in: query
+      required: true
+      schema:
+        type: string
+        enum: [cities, boards, schools, classes, subjects, books, chapters, topics]
+    IdQueryRequired:
+      name: id
+      in: query
+      required: true
+      schema:
+        type: integer
+    CityId:
+      name: cityId
+      in: query
+      schema:
+        type: integer
+    BoardId:
+      name: boardId
+      in: query
+      schema:
+        type: integer
+    SchoolId:
+      name: schoolId
+      in: query
+      schema:
+        type: integer
+    SchoolIdRequired:
+      name: schoolId
+      in: query
+      required: true
+      schema:
+        type: integer
+    ClassId:
+      name: classId
+      in: query
+      schema:
+        type: integer
+    SubjectId:
+      name: subjectId
+      in: query
+      schema:
+        type: integer
+    BookId:
+      name: bookId
+      in: query
+      schema:
+        type: integer
+    ChapterId:
+      name: chapterId
+      in: query
+      schema:
+        type: integer
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: User is not allowed to perform this action
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +330,216 @@ components:
           type: string
       required:
         - status
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+    EntityRef:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+      required: [id, name]
+    City:
+      allOf:
+        - $ref: "#/components/schemas/EntityRef"
+    Board:
+      allOf:
+        - $ref: "#/components/schemas/EntityRef"
+    School:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        cityId: { type: integer }
+        boardId: { type: integer }
+        cityName: { type: string }
+        boardName: { type: string }
+      required: [id, name, cityId, boardId]
+    Class:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        schoolId: { type: integer }
+      required: [id, name, schoolId]
+    Subject:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        schoolId: { type: integer }
+        classId: { type: integer }
+        color: { type: ["string", "null"] }
+      required: [id, name, schoolId, classId]
+    Book:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        subjectId: { type: integer }
+        classId: { type: integer }
+        schoolId: { type: integer }
+        publisher: { type: ["string", "null"] }
+      required: [id, name, subjectId, classId, schoolId]
+    Chapter:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        bookId: { type: integer }
+        orderIndex: { type: integer }
+      required: [id, name, bookId, orderIndex]
+    Topic:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        chapterId: { type: integer }
+        orderIndex: { type: integer }
+      required: [id, name, chapterId, orderIndex]
+    CurriculumTree:
+      type: object
+      properties:
+        classes:
+          type: array
+          items: { $ref: "#/components/schemas/Class" }
+        subjects:
+          type: array
+          items: { $ref: "#/components/schemas/Subject" }
+        books:
+          type: array
+          items: { $ref: "#/components/schemas/Book" }
+        chapters:
+          type: array
+          items: { $ref: "#/components/schemas/Chapter" }
+        topics:
+          type: array
+          items: { $ref: "#/components/schemas/Topic" }
+      required: [classes, subjects, books, chapters, topics]
+    TeacherAssignment:
+      type: object
+      properties:
+        classId: { type: integer }
+        subjectId: { type: integer }
+        className: { type: string }
+        subjectName: { type: string }
+      required: [classId, subjectId, className, subjectName]
+    UserProfile:
+      type: object
+      properties:
+        id: { type: integer }
+        clerkUserId: { type: string }
+        name: { type: string }
+        email: { type: string }
+        role:
+          type: string
+          enum: [student, teacher, admin]
+        city: { type: ["object", "null"], $ref: "#/components/schemas/EntityRef" }
+        board: { type: ["object", "null"], $ref: "#/components/schemas/EntityRef" }
+        school: { type: ["object", "null"], $ref: "#/components/schemas/School" }
+        class: { type: ["object", "null"], $ref: "#/components/schemas/Class" }
+        teacherAssignments:
+          type: array
+          items: { $ref: "#/components/schemas/TeacherAssignment" }
+        onboardingComplete: { type: boolean }
+      required: [id, clerkUserId, name, email, role, teacherAssignments, onboardingComplete]
+    ProfileUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        role:
+          type: string
+          enum: [student, teacher]
+        cityId: { type: integer }
+        boardId: { type: integer }
+        schoolId: { type: integer }
+        classId: { type: ["integer", "null"] }
+        teacherAssignments:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeacherAssignmentInput"
+      required: [name, role, cityId, boardId, schoolId]
+    TeacherAssignmentInput:
+      type: object
+      properties:
+        classId: { type: integer }
+        subjectId: { type: integer }
+      required: [classId, subjectId]
+    OnboardingOptions:
+      type: object
+      properties:
+        cities:
+          type: array
+          items: { $ref: "#/components/schemas/EntityRef" }
+        boards:
+          type: array
+          items: { $ref: "#/components/schemas/EntityRef" }
+        schools:
+          type: array
+          items: { $ref: "#/components/schemas/School" }
+        classes:
+          type: array
+          items: { $ref: "#/components/schemas/Class" }
+        subjects:
+          type: array
+          items: { $ref: "#/components/schemas/Subject" }
+      required: [cities, boards, schools, classes, subjects]
+    RecentContent:
+      type: object
+      properties:
+        topicId: { type: integer }
+        topicName: { type: string }
+        chapterName: { type: string }
+        bookName: { type: string }
+        subjectName: { type: string }
+        accessedAt: { type: string, format: date-time }
+      required: [topicId, topicName, chapterName, bookName, subjectName, accessedAt]
+    StudentDashboard:
+      type: object
+      properties:
+        profile: { $ref: "#/components/schemas/UserProfile" }
+        subjects:
+          type: array
+          items: { $ref: "#/components/schemas/Subject" }
+        recentContent:
+          type: array
+          items: { $ref: "#/components/schemas/RecentContent" }
+        topicCount: { type: integer }
+      required: [profile, subjects, recentContent, topicCount]
+    TeacherDashboard:
+      type: object
+      properties:
+        profile: { $ref: "#/components/schemas/UserProfile" }
+        assignments:
+          type: array
+          items: { $ref: "#/components/schemas/TeacherAssignment" }
+        recentActivity:
+          type: array
+          items: { $ref: "#/components/schemas/RecentContent" }
+        topicCount: { type: integer }
+      required: [profile, assignments, recentActivity, topicCount]
+    AdminEntity:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        parentId: { type: ["integer", "null"] }
+        metadata:
+          type: object
+          additionalProperties: true
+      required: [id, name, parentId, metadata]
+    AdminEntityInput:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        parentId: { type: ["integer", "null"] }
+        metadata:
+          type: object
+          additionalProperties: true
+      required: [name]
 
